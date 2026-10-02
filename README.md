@@ -35,140 +35,22 @@
 
 > Android 13+ 的「设置 → 系统 → 语言和输入法 → 屏幕键盘」里也能切换。
 
-## 应用首页
-
-打开应用就是一个完整的前端，从上到下四块：
-
-```
-┌─────────────────────────────────────────┐
-│ 中英对照拼音输入法                       │
-│ ┌─ 当前状态 ──────────────────────────┐ │
-│ │ ① 已启用 ✅  ② 正在使用本输入法 ✅   │ │
-│ │ [去系统设置启用] [切换输入法]        │ │
-│ └─────────────────────────────────────┘ │
-│ 怎么用                                   │
-│ ① 启用输入法 → ② 切换过来 → ③ 打拼音看英文│
-│ ┌─ 先在这儿试试 ──────────── [清空] ──┐ │
-│ │ 输入：nihao                          │ │
-│ │ [你好 / hello; hi] [拟好 / …]        │ │
-│ │ q w e r t y u i o p                  │ │
-│ │  a s d f g h j k l                   │ │
-│ │   z x c v b n m ⌫                    │ │
-│ │ 上屏结果：你好                       │ │
-│ └─────────────────────────────────────┘ │
-│ ┌─ 扩展包            21 个 · 已启用 1 个 ▸┐│  ← 默认收起，点一下展开
-│ └─────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-
-展开后（点标题即可收起/展开，状态会记住）：
-
-│ ┌─ 扩展包            21 个 · 已启用 1 个 ▾┐│
-│ │ [＋ 导入文件] [从剪贴板导入]           ││
-│ │ [全部][主题][键盘][标点][词典][功能]    ││
-│ │ 🎨 曜石黑            [使用中]           ││
-│ │ 🎨 樱花粉            [点击使用]         ││
-│ │ 💬 日常问候 8 条      [点击启用]         ││
-│ └─────────────────────────────────────┘ │
-```
-
-**试打演示**用的是应用自带的小键盘，和系统当前用哪个输入法无关，所以还没启用输入法也能看效果；
-它和真键盘共用同一份候选逻辑（`Candidates.java`），演示里看到什么，真键盘里就是什么。
-
-**扩展包**这一块默认是**收起**的（首页因此短很多），点标题上的 `▸ / ▾`
-展开或收起，状态存在 `SharedPreferences` 里，下次打开还是你上次的样子。
-收起时标题上仍会显示「21 个扩展包 · 已启用 N 个」，不会藏得找不着；
-导入新包后会自动展开给你看。切换是原地显示/隐藏，不会把页面滚回顶部。
-
-扩展包分五类，都是本地真生效、不联网：
-
-| 类别 | 生效方式 |
-| --- | --- |
-| 🎨 主题包（5 个） | 换键盘配色：键帽 / 工具条 / 候选栏 / 强调色，键盘下次弹出即生效，应用自身也跟着换 |
-| 💬 短语包（3 个，各 8 条） | 往词典里注入常用语（拼音 + 中文 + 英文），打字时直接进候选，前缀也能匹配（打 `zaodian` 出「早点休息」） |
-| 📖 词典包 | 展示内置词典规模；方言 / 医学词库标为「敬请期待」 |
-
-状态存在 `SharedPreferences`（`biime_packs`），输入法进程和界面共享。
-
-## 从源码构建
-
-不需要 Gradle / Android Studio，只需要 JDK 17 + Android SDK（build-tools 34、platform android-34）：
-
-```bash
-export ANDROID_SDK_ROOT=/opt/android-sdk
-# 1. 生成词典资源（需要 CC-CEDICT 与 jieba 词频表）
-python3 tools/build_dict.py \
-    --cedict /root/dict/cedict.txt \
-    --freq   /root/dict/jieba_dict.txt \
-    --out    app/assets/pinyin.dict
-# 2. 构建
-bash build.sh
-# 产物：dist/BiIme-1.0.apk
-```
 
 数据源：
 
 * CC-CEDICT：<https://www.mdbg.net/chinese/dictionary?page=cedict>
 * jieba 词频表：<https://github.com/fxsjy/jieba>
 
-## 发布到 GitHub
-
-仓库里**只提交源码和文档**——22 个文件、约 340 KB、6500 行：
-
-```
-.gitignore  LICENSE  README.md  FILES.md  PACKS.md  build.sh
-app/AndroidManifest.xml
-app/res/{drawable/ic_launcher.xml, values/strings.xml, xml/method.xml}
-app/src/com/dsh/biime/*.java          （13 个）
-tools/build_dict.py  tools/fetch_data.sh
-```
-
-**不提交**（`.gitignore` 已经排除）：
-
-| 排除项 | 原因 |
-| --- | --- |
-| `app/assets/*.dict`、`*.idx` | 11 MB 的生成物，由 `tools/fetch_data.sh` 从上游数据编译 |
-| `dist/` | APK 产物 + **签名 keystore**，都不该进 git |
-| `build/` | 中间产物 |
-| `*.apk` `*.idsig` `*.keystore` | 同上 |
-
-别人克隆后两条命令就能构建：
-
-```bash
-bash tools/fetch_data.sh   # 下载 CC-CEDICT + jieba 词频表并编译词典（约 4 MB 流量）
-bash build.sh              # 出 dist/BiIme-1.0.apk
-```
-
-APK 建议走 **GitHub Releases**，不要塞进 git 历史：
-
-```bash
-git tag v1.0 && git push --tags
-gh release create v1.0 dist/BiIme-1.0.apk --title "v1.0" --notes "首个版本"
-```
-
-> ⚠️ `dist/ime.keystore` 被排除是刻意的：它是**你的签名密钥**，丢了就再也无法给已安装的用户做覆盖升级，
-> 请自己备份好。别人从仓库构建出来的 APK 用他们自己新生成的 keystore，
-> 签名不同，**不能覆盖安装**你发布的包。
-
 ### 许可
 
 * **本项目代码**：[GPL-3.0](LICENSE)。可以自由使用、修改、再分发，
   但**分发修改版时必须同样以 GPL-3.0 开源**并保留版权声明。
 * **扩展包不受影响**：`*.biime` 是独立的数据文件，不是本程序的衍生作品。
-  你为自己写的包单独拥有版权，想用什么协议都行——这也是社区包能自由流通的前提。
-  （应用只负责解析和消费这些数据，不把它们编译进程序。）
-* **词典数据**（构建时下载，不入库，所以仓库里不必带副本）：
-
-  | 数据 | 许可 | 用在哪 |
-  | --- | --- | --- |
-  | CC-CEDICT | CC BY-SA 4.0 | 中文词条 + 英文释义 |
-  | jieba dict | MIT | 词频、派生词条、联想索引 |
-
-  但**发布 APK 时要保留署名**——应用首页底部已经写了这两行。
-
+  
 ## 代码结构
 
 ```
-app/src/com/dsh/biime/          （13 个 Java 文件，约 5000 行）
+app/src/com/dsh/biime/          （13个 Java 文件，约 5000 行）
   BiImeService.java   输入法本体：键盘 UI、候选栏、输入逻辑
   MainActivity.java   应用首页：状态卡、使用引导、试打演示、扩展包管理
   Packs.java          扩展包内核：内置目录、导入校验、参数合并
@@ -190,27 +72,7 @@ build.sh              aapt + javac + d8 + zipalign + apksigner 直接出 APK
 **每个文件的职责、数据流、以及"想改某个东西该动哪个文件"的速查表，
 见 [`FILES.md`](FILES.md)。**
 
-### 修复记录：一打开就闪退（Android 14+ / targetSdk 34）
 
-```
-java.lang.SecurityException: Settings key: <enabled_input_methods> is only readable
-to apps with targetSdkVersion lower than or equal to: 33
-  at com.dsh.biime.MainActivity.isImeEnabled(...)
-```
-
-`Settings.Secure.ENABLED_INPUT_METHODS`、`DEFAULT_INPUT_METHOD` 从 Android 14 起
-**只对 targetSdk ≤ 33 的应用开放读取**，本应用 targetSdk 34，一读就抛 SecurityException。
-两版首页都在启动路径上读它，所以都是"打开即闪退"。
-
-* 是否已启用 → 改用公开 API `InputMethodManager.getEnabledInputMethodList()` 比对包名；
-* 当前是否在用 → 先试 `DEFAULT_INPUT_METHOD`（旧系统/低 targetSdk 上仍可读），
-  抛异常则退回"输入法每次弹出时写的时间戳心跳"（`Packs.markImeActive`）。
-
-修复已在真机（vivo V2425A / Android 16）上验证：应用可正常打开、状态卡正常、
-应用内试打演示的候选与上屏都正常。这一节也是那次调试留下的记录。
-
-界面上没有用 XML 布局和 AndroidX，全部用 framework 的 View 在代码里搭——
-这样构建链只要 `aapt + javac + d8`，不依赖 Gradle 与在线依赖仓库。
 
 ### 词典格式
 
@@ -238,7 +100,6 @@ nihao   你好    你好    ni3 hao3      hello; hi      2       1999275
 * 没有语言模型，长串连打时个别字会选到同音的高频字（`duoshaoqian → 多少前` 而不是 多少钱）；
   分开打 `duo shao qian` 或用候选栏逐段上屏都能得到正确结果。
 * CC-CEDICT 没有的常用短语靠上面的兜底切分补，释义是逐段拼的，不如词典释义精确。
-* 只在 arm64 真机 / 模拟器上做过静态验证（词典逻辑用 JVM 跑过全量用例），UI 没在设备上实机跑过。
 
 ## 扩展包
 
