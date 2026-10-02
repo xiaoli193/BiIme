@@ -1,0 +1,23 @@
+# 构建产物
+/build/
+/dist/
+*.apk
+*.idsig
+*.keystore
+*.jks
+
+# 词典资源是「生成物」：由 tools/fetch_data.sh 从上游数据编译而来，不入库
+# （11 MB，且每次重新生成都会撑大 git 历史）
+/app/assets/*.dict
+/app/assets/*.idx
+
+# 编辑器 / 系统
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 崩溃日志之类的临时文件
+*.log
+biime-crash-*.txt
